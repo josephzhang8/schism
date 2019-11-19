@@ -231,7 +231,7 @@
       real(rkind) :: bpgr(nsa,2)
 
 !     Tracers
-      real(rkind),allocatable :: Bio_bdefp(:,:),tr_tc(:,:),tr_tl(:,:),tsd(:,:)
+      real(rkind),allocatable :: Bio_bdefp(:,:),tr_tc(:,:),tr_tl(:,:) !,tsd(:,:)
 !      real(rkind),allocatable :: mix_ds(:,:,:),mix_dfv(:,:) !Tsinghua group !1120:close
 
 #ifdef USE_WWM
@@ -280,8 +280,8 @@
 #endif
 
       if(ibtrack_test==1) then
-        allocate(tsd(nvrt,nsa),stat=istat)
-        if(istat/=0) call parallel_abort('STEP: tsd allocation failure')
+!        allocate(tsd(nvrt,nsa),stat=istat)
+!        if(istat/=0) call parallel_abort('STEP: tsd allocation failure')
       endif
 
 #ifdef USE_SED
@@ -3108,27 +3108,27 @@
 !'    Debug: test backtracking alone
       if(ibtrack_test==1) then !implies ibc==1.and.ibtp==0
         !For first step, generate vertical profiles for T,S
-        if(it==iths_main+1) then
-          open(31,file=in_dir(1:len_in_dir)//'temp.ic',status='old')
-          read(31,*)
-          read(31,*)
-          do i=1,np_global
-            read(31,*) itmp,xtmp,ytmp,tmp
-            if(ipgl(i)%rank==myrank) tr_nd0(1,:,ipgl(i)%id)=tmp
-          enddo !i
-          close(31)
-          tr_nd(1,:,:)=tr_nd0(1,:,:)
-
-          do i=1,nsa
-            n1=isidenode(1,i); n2=isidenode(2,i)
-            do k=1,nvrt
-              tsd(k,i)=(tr_nd(1,k,n1)+tr_nd(1,k,n2))/2 !-20*tanh(5*zs(k,i)/dps(i))
-            enddo !k
-
-            !Debug
-            !write(12,*)i,real(xcj(i)),real(ycj(i)),real(tsd(nvrt,i)),real(tr_nd(1,nvrt,n1)),real(tr_nd(1,nvrt,n2))
-          enddo !i
-        endif !it
+!        if(it==iths_main+1) then
+!          open(31,file=in_dir(1:len_in_dir)//'temp.ic',status='old')
+!          read(31,*)
+!          read(31,*)
+!          do i=1,np_global
+!            read(31,*) itmp,xtmp,ytmp,tmp
+!            if(ipgl(i)%rank==myrank) tr_nd0(1,:,ipgl(i)%id)=tmp
+!          enddo !i
+!          close(31)
+!          tr_nd(1,:,:)=tr_nd0(1,:,:)
+!
+!          do i=1,nsa
+!            n1=isidenode(1,i); n2=isidenode(2,i)
+!            do k=1,nvrt
+!              tsd(k,i)=(tr_nd(1,k,n1)+tr_nd(1,k,n2))/2 !-20*tanh(5*zs(k,i)/dps(i))
+!            enddo !k
+!
+!            !Debug
+!            !write(12,*)i,real(xcj(i)),real(ycj(i)),real(tsd(nvrt,i)),real(tr_nd(1,nvrt,n1)),real(tr_nd(1,nvrt,n2))
+!          enddo !i
+!        endif !it
 
         eta1=0; eta2=0; we=0
         rot_per=3000 !period
@@ -3199,7 +3199,7 @@
 
 !$OMP parallel default(private) shared(ns,sdbt,su2,sv2,uu2,vv2,ww2,idry_s,kbs,isdel, &
 !$OMP idry_e,iplg,isidenode,xcj,ycj,zcj,pframe,nvrt,islg,iadv,ics,xctr,yctr,zctr,zs,isbs,velmin_btrack, &
-!$OMP swild98,ibtrack_test,tsd,dt,dtb_min,dtb_max,ndelt_min,ndelt_max,elnode,i34,dldxy,btrack_nudge, &
+!$OMP swild98,ibtrack_test,dt,tr_sd_bt,dtb_min,dtb_max,ndelt_min,ndelt_max,elnode,i34,dldxy,btrack_nudge, &
 !$OMP xnd,ynd,l,nbtrk,mxnbt,btlist,myrank,ielg &
 #ifdef USE_WWM
 !$OMP ,stokes_w_nd
@@ -3214,6 +3214,9 @@
       do i=1,ns
         sdbt(1,:,i)=su2(:,i)
         sdbt(2,:,i)=sv2(:,i)
+        n1=isidenode(1,i)
+        n2=isidenode(2,i)
+        tr_sd_bt(1:2,:,i)=(tr_nd(1:2,:,n1)+tr_nd(1:2,:,n2))/2
       enddo !i
 !$OMP end do
 
@@ -3293,7 +3296,8 @@
             swild98(3:4,j,isd0)=sv2(j,isd0)
 
             if(ibtrack_test==1) then
-              swild98(1:2,j,isd0)=tsd(j,isd0) !max/min
+              !swild98(1:2,j,isd0)=tsd(j,isd0) !max/min
+              !tr_sd_bt(1:2,j,isd0)=(tr_nd(1:2,j,n1)+tr_nd(1:2,j,n2))/2 
             endif
           else !do btrack
 !           Compute # of sub-division based on local gradients 
@@ -3386,12 +3390,14 @@
               endif
            
               if(ibtrack_test==1) then
-                tsd(j,isd0)=swild3(1)
-                swild98(1,j,isd0)=swild3(2) !max
-                swild98(2,j,isd0)=swild3(3) !min
-              else
-                swild98(1:4,j,isd0)=swild3(1:4) 
+                !tsd(j,isd0)=swild3(1)
+                !swild98(1,j,isd0)=swild3(2) !max
+                !swild98(2,j,isd0)=swild3(3) !min
+                tr_sd_bt(1:2,j,isd0)=swild3(1:2)
               endif
+              !else
+              swild98(1:4,j,isd0)=swild3(1:4) 
+              !endif
 
                   !Check for ics=2 and zonal flow
 !                  if(1==2.and.ics==2.and.j==nvrt) then
@@ -3517,12 +3523,14 @@
               endif
 
               if(ibtrack_test==1) then
-                tsd(j,isd0)=btlist(ibt)%sclr(1)
-                swild98(1,j,isd0)=btlist(ibt)%sclr(2) !max
-                swild98(2,j,isd0)=btlist(ibt)%sclr(3) !min
-              else
-                swild98(1:4,j,isd0)=btlist(ibt)%sclr(1:4)
+                tr_sd_bt(1:2,j,isd0)=btlist(ibt)%sclr(1:2)
+!                tsd(j,isd0)=btlist(ibt)%sclr(1)
+!                swild98(1,j,isd0)=btlist(ibt)%sclr(2) !max
+!                swild98(2,j,isd0)=btlist(ibt)%sclr(3) !min
               endif
+!              else
+              swild98(1:4,j,isd0)=btlist(ibt)%sclr(1:4)
+!              endif
 
 !              xyzs(isd0,j,1)=btlist(ibt)%xt; xyzs(isd0,j,2)=btlist(ibt)%yt; xyzs(isd0,j,3)=btlist(ibt)%zt;
 
@@ -3557,7 +3565,7 @@
       call exchange_s3d_4(swild98)
 !      call exchange_e3dw(webt)
 
-      if(ibtrack_test==1) call exchange_s3dw(tsd)
+!      if(ibtrack_test==1) call exchange_s3dw(tsd)
 
 #ifdef INCLUDE_TIMING
       wtimer(4,2)=wtimer(4,2)+mpi_wtime()-cwtmp
@@ -5973,7 +5981,7 @@
 #endif
 
 !     Test backtracking alone with rotating Gausshill
-      if(ibtrack_test==1) then !b-tropic w/o transport
+      if(ibtrack_test==1) then !b-tropic w/o transport so transport solver below won't be invoked
         eta1=0; eta2=0; we=0
         rot_per=3000 !period
         rot_f=2*pi/rot_per !freq.
@@ -6002,22 +6010,22 @@
         enddo !i
 
         !Convert side T to node T for next btrack (pure tri)
-        tr_nd(1,:,:)=0 !init
-        do i=1,nea
-          do k=1,nvrt
-            do j=1,3
-              isd=elside(j,i)
-              isd2=elside(nxq(1,j,i34(i)),i) 
-              isd3=elside(nxq(2,j,i34(i)),i)
-              nd=elnode(j,i)
-              tr_nd(1,k,nd)=tr_nd(1,k,nd)+tsd(k,isd2)+tsd(k,isd3)-tsd(k,isd)
-            enddo !j
-          enddo !k
-        enddo !i
-
-        do i=1,np
-          tr_nd(1,:,i)=tr_nd(1,:,i)/nne(i)
-        enddo !i
+!        tr_nd(1,:,:)=0 !init
+!        do i=1,nea
+!          do k=1,nvrt
+!            do j=1,3
+!              isd=elside(j,i)
+!              isd2=elside(nxq(1,j,i34(i)),i) 
+!              isd3=elside(nxq(2,j,i34(i)),i)
+!              nd=elnode(j,i)
+!              tr_nd(1,k,nd)=tr_nd(1,k,nd)+tsd(k,isd2)+tsd(k,isd3)-tsd(k,isd)
+!            enddo !j
+!          enddo !k
+!        enddo !i
+!
+!        do i=1,np
+!          tr_nd(1,:,i)=tr_nd(1,:,i)/nne(i)
+!        enddo !i
 
 !       Inverse distance fit
 !        tr_nd(1,:,:)=0 !init
@@ -6047,8 +6055,8 @@
 !            tr_nd(1,k,i)=tr_nd(1,k,i)/sum1
 !          enddo !k
 !        enddo !i=1,np
-       
-        call exchange_p3d_tr(tr_nd)
+!       
+!        call exchange_p3d_tr(tr_nd)
       endif !ibtrack_test
 
 #ifdef TIMER2
@@ -6453,7 +6461,7 @@
         ltvd=itr_met>=2
         if(itr_met<=2) then !upwind or explicit TVD
           call do_transport_tvd(it,ltvd,ntracers,difnum_max_l) !,nvrt,npa,dfh)
-        else if(itr_met==3.or.itr_met==4) then !vertically implicit TVD
+        else if(itr_met>=3.and.itr_met<=5) then !vertically implicit TVD
           call do_transport_tvd_imp(it,ltvd,ntracers,difnum_max_l) !,nvrt,npa,dfh)
         endif !itr_met
         if(myrank==0) write(16,*)'done tracer transport...'
@@ -8454,7 +8462,7 @@
       deallocate(swild95)
 #endif
 
-      if(ibtrack_test==1) deallocate(tsd)
+!      if(ibtrack_test==1) deallocate(tsd)
       if(iflux/=0) deallocate(fluxes_tr, fluxes_tr_gb)
 
 #ifdef TIMER2

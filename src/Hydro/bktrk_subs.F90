@@ -944,20 +944,23 @@ end subroutine inter_btrack
 !     Calc max/min for ELAD
 !     If inter_mom/=0, sclr() will be updated below
       if(ibtrack_test==1) then
-        sclr(1)=0
-        do j=1,i34(nnel)
-          nd=elnode(j,nnel)
-          tmp=tr_nd(1,jlev,nd)*(1-zrat)+tr_nd(1,jlev-1,nd)*zrat
-          sclr(1)=sclr(1)+tmp*arco(j)
-        enddo !j
+        sclr(1:2)=tr_el(1:2,jlev,nnel)
+!        sclr(1:2)=0
+!        do j=1,i34(nnel)
+!          nd=elnode(j,nnel)
+!          tmp=tr_nd(1,jlev,nd)*(1-zrat)+tr_nd(1,jlev-1,nd)*zrat
+!          sclr(1)=sclr(1)+tmp*arco(j)
+!          tmp=tr_nd(2,jlev,nd)*(1-zrat)+tr_nd(2,jlev-1,nd)*zrat
+!          sclr(2)=sclr(2)+tmp*arco(j)
+!        enddo !j
 
-        sclr(2)=-huge(1.d0) !max
-        sclr(3)=huge(1.d0) !min
-        do j=1,i34(nnel)
-          nd=elnode(j,nnel)
-          sclr(2)=max(sclr(2),tr_nd(1,jlev,nd),tr_nd(1,jlev-1,nd))
-          sclr(3)=min(sclr(3),tr_nd(1,jlev,nd),tr_nd(1,jlev-1,nd))
-        enddo !j
+!        sclr(2)=-huge(1.d0) !max
+!        sclr(3)=huge(1.d0) !min
+!        do j=1,i34(nnel)
+!          nd=elnode(j,nnel)
+!          sclr(2)=max(sclr(2),tr_nd(1,jlev,nd),tr_nd(1,jlev-1,nd))
+!          sclr(3)=min(sclr(3),tr_nd(1,jlev,nd),tr_nd(1,jlev-1,nd))
+!        enddo !j
       else !not btrack test
         sclr(1)=-huge(1.d0) !u max
         sclr(2)=huge(1.d0) !u min
@@ -1031,7 +1034,7 @@ end subroutine inter_btrack
           uuint=al_beta(npp+1,1)+al_beta(npp+2,1)*xn2+al_beta(npp+3,1)*yn2
           vvint=al_beta(npp+1,2)+al_beta(npp+2,2)*xn2+al_beta(npp+3,2)*yn2
           !For ibtrack_test=1
-          if(ibtrack_test==1) sclr(1)=al_beta(npp+1,3)+al_beta(npp+2,3)*xn2+al_beta(npp+3,3)*yn2
+          !if(ibtrack_test==1) sclr(1)=al_beta(npp+1,3)+al_beta(npp+2,3)*xn2+al_beta(npp+3,3)*yn2
           do i=1,npp
             nd=itier_nd(i,ie)
             if(ics==1) then
@@ -1045,7 +1048,7 @@ end subroutine inter_btrack
             uuint=uuint+al_beta(i,1)*covar2 !dir assumed to be same as frame0 (ll)
             vvint=vvint+al_beta(i,2)*covar2
             !For ibtrack_test=1
-            if(ibtrack_test==1) sclr(1)=sclr(1)+al_beta(i,3)*covar2
+            !if(ibtrack_test==1) sclr(1)=sclr(1)+al_beta(i,3)*covar2
           enddo !i
 
 !          !Proj vel. back to frame0

@@ -782,7 +782,7 @@
 !...  Transport method for all tracers including T,S
 !     1: upwind; 2: TVD (explicit); 3: TVD (implicit vertical); 4: WENO (implicit vertical)
 !      call get_param('param.in','itr_met',1,itr_met,tmp,stringvalue)
-      if(itr_met<1.or.itr_met>4) then
+      if(itr_met<1.or.itr_met>5) then
         write(errmsg,*)'Unknown tracer method',itr_met
         call parallel_abort(errmsg)
       endif
@@ -1245,8 +1245,8 @@
         write(errmsg,*)'Illegal ibtrack_test:',ibtrack_test
         call parallel_abort(errmsg)
       endif
-      if(ibtrack_test==1.and..not.(ibc==1.and.ibtp==0)) call parallel_abort('INIT: btrack can only be used with b-tropic')
-      if(ibtrack_test==1.and.lhas_quad) call parallel_abort('INIT: btrack cannot have quads')
+!      if(ibtrack_test==1.and..not.(ibc==1.and.ibtp==0)) call parallel_abort('INIT: btrack can only be used with b-tropic')
+!      if(ibtrack_test==1.and.lhas_quad) call parallel_abort('INIT: btrack cannot have quads')
 
 !     Rouse test
 !      call get_param('param.in','irouse_test',1,irouse_test,tmp,stringvalue)
@@ -1629,7 +1629,7 @@
 !'
 
 !     All other arrays
-      allocate(sdbt(4,nvrt,nsa), & !webt(nvrt,nea), bubt(2,nea), & 
+      allocate(sdbt(4,nvrt,nsa),tr_sd_bt(2,nvrt,ns), & 
          &  windx1(npa),windy1(npa),windx2(npa),windy2(npa),windx(npa),windy(npa), &
          &  tau(2,npa),tau_bot_node(3,npa),iadv(npa),windfactor(npa),pr1(npa),airt1(npa),shum1(npa), &
          &  pr2(npa),airt2(npa),shum2(npa),pr(npa),sflux(npa),srad(npa),tauxz(npa),tauyz(npa), &

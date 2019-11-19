@@ -421,7 +421,7 @@ module schism_glbl
   real(rkind),save,allocatable :: Cdp(:)         ! drag at node
   real(rkind),save,allocatable :: rmanning(:)         ! Manning's n at node
   real(rkind),save,allocatable,target :: windx(:),windy(:) !wind vector
-  real(rkind),save,allocatable,target :: sdbt(:,:,:),shapiro(:), &
+  real(rkind),save,allocatable,target :: sdbt(:,:,:),tr_sd_bt(:,:,:),shapiro(:), &
                                   &windx1(:),windy1(:),windx2(:),windy2(:), &
                                   &surf_t1(:),surf_t2(:),surf_t(:), & !YC
                                   !WARNING: airt[12] are in C not K. The

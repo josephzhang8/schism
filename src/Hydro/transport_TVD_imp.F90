@@ -1290,8 +1290,121 @@
         write(17,*)it,it_sub
         flush(17)
       endif
+
+!--------------------------------------------------------------------------------------------
+      else if(itr_met==5) then !FFELM
+!--------------------------------------------------------------------------------------------
+!$OMP parallel default(shared) private(i,k,iup,ido,psum,psumtr,j,jsj,ie,ind1,ind2,tmp, &
+!$OMP delta_tr,jj,rat,ref_flux,same_sign,vj,bigv,dtb_by_bigv,adv_tr,iel,trel_tmp_outside, &
+!$OMP ibnd,nwild,ll,ndo,lll,dtbl2,ie02,lev02,in_st2)
+
+
+!       Store last step's tracers
+!$OMP   workshare
+        trel_tmp(1:ntr,:,1:nea)=tr_el(1:ntr,:,1:nea)
+!$OMP   end workshare
+
+!$OMP   do 
+        do i=1,ne
+          if(idry_e(i)==1) cycle
+
+!         Wet elements with wet nodes
+          do k=kbe(i)+1,nvrt
+            bigv=area(i)*(ze(k,i)-ze(k-1,i)) !volume
+            dtb_by_bigv = dt/bigv
+  
+!           Advective flux
+!           Strike out \hat{S}^- (see above)
+            psumtr(1:ntr)=0 !sum of modified fluxes at all inflow bnds 
+!           Alternative mass conservative form for the advection part (Eq. C32); contribute to rrhs
+            adv_tr(1:ntr)=trel_tmp(1:ntr,k,i) 
+
+!           Horizontal faces
+            do j=1,i34(i)
+              jsj=elside(j,i) !resident side
+              iel=ic3(j,i)
+
+              if(iel/=0) then
+                if(idry_e(iel)==1) cycle
+                trel_tmp_outside(:)=(tr_sd_bt(:,max(kbs(jsj),k),jsj)+tr_sd_bt(:,max(kbs(jsj),k-1),jsj))/2
+              else !bnd side
+                if(isbs(jsj)<=0.or.k>=kbs(jsj)+1.and.ssign(j,i)*flux_mod_hface(1,k,jsj)>=0) cycle
+       
+                !Open bnd side with _inflow_; compute trel_tmp from outside and save it as trel_tmp_outside(1:ntr)
+                ibnd=isbs(jsj) !global bnd #
+                !Find node indices on bnd segment for the 2 nodes (for type 4 b.c.)
+                nwild(1:2)=0
+                do ll=1,2 !nodes
+                  ndo=isidenode(ll,jsj)
+                  do lll=1,2 !2 possible bnds
+                    if(isbnd(lll,ndo)==ibnd) then
+                      nwild(ll)=isbnd(-lll,ndo) !global index
+                      exit
+                    endif
+                  enddo !lll
+                enddo !ll
+                ind1=nwild(1); ind2=nwild(2);
+
+                do jj=1,natrm
+                  if(ntrs(jj)<=0) cycle
+
+                  do ll=irange_tr(1,jj),irange_tr(2,jj)
+                    if(itrtype(jj,ibnd)==0) then !set to be same as interior (so cancel out below)
+                      trel_tmp_outside(ll)=trel_tmp(ll,k,i)
+                    else if(itrtype(jj,ibnd)==1.or.itrtype(jj,ibnd)==2) then
+                      trel_tmp_outside(ll)=trobc(jj,ibnd)*trth(ll,1,1,ibnd)+(1-trobc(jj,ibnd))*trel_tmp(ll,k,i)
+                    else if(itrtype(jj,ibnd)==3) then
+                      tmp=sum(tr_nd0(ll,k,elnode(1:i34(i),i))+tr_nd0(ll,k-1,elnode(1:i34(i),i)))/2/i34(i)
+                      trel_tmp_outside(ll)=trobc(jj,ibnd)*tmp+(1-trobc(jj,ibnd))*trel_tmp(ll,k,i)
+                    else if(itrtype(jj,ibnd)==4) then
+                      trel_tmp_outside(ll)=trobc(jj,ibnd)* &
+     &(trth(ll,k,ind1,ibnd)+trth(ll,k,ind2,ibnd)+trth(ll,k-1,ind1,ibnd)+trth(ll,k-1,ind2,ibnd))/4+ &
+     &(1-trobc(jj,ibnd))*trel_tmp(ll,k,i)
+                    else
+                      write(errmsg,*)'TRASNPORT: INVALID VALUE FOR ITRTYPE(3):',jj,ibnd
+!'
+                      call parallel_abort(errmsg)
+                    endif !itrtype
+                  enddo !ll
+                enddo !jj
+              endif !iel
+
+              !if(h_tvd<1.e5.and.k>=kbs(jsj)+1) then
+              if(k>=kbs(jsj)+1) then
+                do jj=1,ntr
+                  adv_tr(jj)=adv_tr(jj)+dtb_by_bigv*ssign(j,i)*flux_adv_hface(k,jsj)*(trel_tmp(jj,k,i)-trel_tmp_outside(jj))
+                enddo !jj
+              endif
+            enddo !j=1,i34(i)
+
+            tr_el(1:ntr,k,i)=adv_tr(1:ntr) 
+          enddo !k=kbe(i)+1,nvrt
+
+!         Extend
+          do k=1,kbe(i)
+            tr_el(1:ntr,k,i)=tr_el(1:ntr,kbe(i)+1,i)
+          enddo !k
+        enddo !i=1,ne
+!$OMP   end do
+
+!$OMP   master
+!       Update ghosts
+#ifdef INCLUDE_TIMING
+        cwtmp=mpi_wtime()
+        timer_ns(1)=timer_ns(1)+cwtmp-cwtmp2
+#endif
+        call exchange_e3d_2t_tr(tr_el)
+
+#ifdef INCLUDE_TIMING
+        cwtmp2=mpi_wtime()
+        wtimer(9,2)=wtimer(9,2)+cwtmp2-cwtmp
+#endif      
+!$OMP   end master
+!$OMP   barrier
+
+!$OMP end parallel
 !-------------------------------------------------------------------------------------
-      endif !itr_met=3,4
+      endif !itr_met=3,4,5
       
 !     Debug output of time steps allowed at each element
 #ifdef DEBUG
